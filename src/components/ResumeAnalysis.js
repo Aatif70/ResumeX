@@ -9,6 +9,8 @@ import Chart from 'chart.js/auto'; // Required for Chart.js v3+
 import { FaThumbsUp, FaComments } from 'react-icons/fa'; // Importing icons from react-icons
 import { FaCheckCircle, FaTimesCircle, FaQuestionCircle } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom'; 
+import { ref, uploadBytesResumable } from "firebase/storage";
+import { storage } from "./firebaseConfig"; // Adjust the path as necessary
 
 const StyledPaper = styled(Paper)({
     padding: '40px',
@@ -181,19 +183,29 @@ const ResumeAnalysis = () => {
     // Handle file upload and navigate to UploadPage
     const handleUpload = () => {
         if (file) {
-            setIsScanning(true);
-            let progress = 0;
+            const storageRef = ref(storage, `resumes/${file.name}`);
+            const uploadTask = uploadBytesResumable(storageRef, file);
 
-            // Simulate upload progress
-            const progressInterval = setInterval(() => {
-                progress += 10;
-                setUploadProgress(progress);
-                if (progress >= 100) {
-                    clearInterval(progressInterval);
-                    setIsScanning(false);
+            uploadTask.on(
+                "state_changed",
+                (snapshot) => {
+                    // Observe state change events such as progress, pause, and resume
+                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                    setUploadProgress(progress);
+                    console.log('Upload is ' + progress + '% done');
+                },
+                (error) => {
+                    // Handle unsuccessful uploads
+                    console.error('Error uploading file:', error);
+                    setError('Error uploading file');
+                },
+                () => {
+                    // Handle successful uploads on complete
+                    console.log('File uploaded successfully');
                     setIsAnalysisVisible(true);
+                    alert('File uploaded successfully!'); // Alert message
                 }
-            }, 300); // Increment progress every 300ms
+            );
         } else {
             setError('Please select a file to upload.');
         }
